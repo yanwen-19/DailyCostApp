@@ -33,7 +33,6 @@ class AddEditViewModel(application: Application) : AndroidViewModel(application)
 
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
-
     private var editingItemId: Long? = null
 
     fun loadItem(itemId: Long) {
@@ -50,7 +49,16 @@ class AddEditViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateName(v: String) { _name.value = v }
     fun updatePrice(v: String) { _price.value = v }
-    fun updatePurchaseDate(v: String) { _purchaseDate.value = v }
+
+    /** 日期输入：支持 20260102 自动转 2026-01-02 */
+    fun updatePurchaseDate(v: String) {
+        val clean = v.filter { it.isDigit() || it == '-' }
+        if (clean.length == 8 && clean.all { it.isDigit() }) {
+            _purchaseDate.value = "${clean.substring(0,4)}-${clean.substring(4,6)}-${clean.substring(6,8)}"
+        } else {
+            _purchaseDate.value = clean
+        }
+    }
 
     fun toggleTag(name: String) {
         val list = _selectedTagNames.value.toMutableList()
