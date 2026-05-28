@@ -25,27 +25,23 @@ jobs:
       - name: 生成 Gradle Wrapper
         run: |
           cd /tmp
-          mkdir -p gi
-          cd gi
+          rm -rf gi && mkdir gi && cd gi
           echo "rootProject.name = \"t\"" > settings.gradle
           gradle wrapper --gradle-version 8.7
-          # 查找 settings.gradle.kts 所在的目录
-          TARGET=$(find ${{ github.workspace }} -name "settings.gradle.kts" -exec dirname {} \; | head -1)
-          echo "找到项目目录: $TARGET"
-          cp gradlew gradlew.bat "$TARGET/"
-          cp -r gradle "$TARGET/"
+          PROJ="${{ github.workspace }}/DailyCostApp_Final"
+          echo "项目目录: $PROJ"
+          ls -la "$PROJ"
+          cp gradlew gradlew.bat "$PROJ/"
+          cp -r gradle/wrapper "$PROJ/gradle/"
 
       - name: 编译 Debug APK
         run: |
-          # 查找并进入项目目录
-          cd $(find ${{ github.workspace }} -name "settings.gradle.kts" -exec dirname {} \; | head -1)
+          cd ${{ github.workspace }}/DailyCostApp_Final
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: 上传 APK 文件
+      - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
           name: 日供记账-Debug-APK
-          path: ${{ github.workspace }}/app/build/outputs/apk/debug/*.apk
-        # 如果上面路径找不到，试试：
-        # path: ${{ github.workspace }}/**/app/build/outputs/apk/debug/*.apk
+          path: ${{ github.workspace }}/DailyCostApp_Final/app/build/outputs/apk/debug/*.apk
