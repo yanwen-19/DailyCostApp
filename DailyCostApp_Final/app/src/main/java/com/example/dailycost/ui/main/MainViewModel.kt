@@ -21,39 +21,56 @@ enum class SortDirection { ASC, DESC }
 data class SortOption(val field: SortField, val direction: SortDirection)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val repo = (application as DailyCostApplication).repository
-    private val allItems = repo.allItems
-    val allTags: StateFlow<List<Tag>> = repo.allTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val repository = (application as DailyCostApplication).repository
+    private val allItems = repository.allItems
+    val allTags: StateFlow<List<Tag>> = repository.allTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _tagId = MutableStateFlow<Long?>(null)
-    val selectedTagId: StateFlow<Long?> = _tagId.asStateFlow()
-    private val _sort = MutableStateFlow(SortOption(SortField.PURCHASE_DATE, SortDirection.DESC))
-    val sortOption: StateFlow<SortOption> = _sort.asStateFlow()
-    private val _items = MutableStateFlow<List<ItemWithTags>>(emptyList())
-    val filteredItems: StateFlow<List<ItemWithTags>> = _items.asStateFlow()
+    private val _selectedTagId = MutableStateFlow<Long?>(null)
+    val selectedTagId: StateFlow<Long?> = _selectedTagId.asStateFlow()
+
+    private val _sortOption = MutableStateFlow(SortOption(SortField.PURCHASE_DATE, SortDirection.DESC))
+    val sortOption: StateFlow<SortOption> = _sortOption.asStateFlow()
+
+    private val _filteredItems = MutableStateFlow<List<ItemWithTags>>(emptyList())
+    val filteredItems: StateFlow<List<ItemWithTags>> = _filteredItems.asStateFlow()
 
     data class TagSummary(val totalAmount: Double, val avgDailyCost: Double)
-    private val _sum = MutableStateFlow(TagSummary(0.0, 0.0))
-    val tagSummary: StateFlow<TagSummary> = _sum.asStateFlow()
+    private val _tagSummary = MutableStateFlow(TagSummary(0.0, 0.0))
+    val tagSummary: StateFlow<TagSummary> = _tagSummary.asStateFlow()
+
+    // ★ 新增：资产净值方框数据
+    data class AssetSummary(val totalAmount: Double, val itemCount: Int, val totalDailyCost: Double)
+    private val _assetSummary = MutableStateFlow(AssetSummary(0.0, 0, 0.0))
+    val assetSummary: StateFlow<AssetSummary> = _assetSummary.asStateFlow()
 
     init {
         viewModelScope.launch {
-            combine(allItems, _tagId, _sort) { items, tagId, sort ->
-                val f = if (tagId == null) items else items.filter { it.tags.any { t -> t.id == tagId } }
-                val total = f.sumOf { it.item.price }
-                val avg = if (f.isEmpty()) 0.0 else f.sumOf { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) } / f.size
-                val list = when (sort.field) {
-                    SortField.PURCHASE_DATE -> if (sort.direction == SortDirection.DESC) f.sortedByDescending { it.item.purchaseDate } else f.sortedBy { it.item.purchaseDate }
-                    SortField.PRICE -> if (sort.direction == SortDirection.DESC) f.sortedByDescending { it.item.price } else f.sortedBy { it.item.price }
-                    SortField.DAILY_COST -> if (sort.direction == SortDirection.DESC) f.sortedByDescending { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) } else f.sortedBy { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) }
-                    SortField.NAME -> if (sort.direction == SortDirection.DESC) f.sortedByDescending { it.item.name } else f.sortedBy { it.item.name }
+            combine(allItems, _selectedTagId, _sortOption) { items, tagId, sort ->
+                val filtered = if (tagId == null) items else items.filter { it.tags.any { t -> t.id == tagId } }
+                val total = filtered.sumOf { it.item.price }
+                val avg = if (filtered.isEmpty()) 0.0 else filtered.sumOf { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) } / filtered.size
+                val sorted = when (sort.field) {
+                    SortField.PURCHASE_DATE -> if (sort.direction == SortDirection.DESC) filtered.sortedByDescending { it.item.purchaseDate } else filtered.sortedBy { it.item.purchaseDate }
+                    SortField.PRICE -> if (sort.direction == SortDirection.DESC) filtered.sortedByDescending { it.item.price } else filtered.sortedBy { it.item.price }
+                    SortField.DAILY_COST -> if (sort.direction == SortDirection.DESC) filtered.sortedByDescending { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) } else filtered.sortedBy { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) }
+                    SortField.NAME -> if (sort.direction == SortDirection.DESC) filtered.sortedByDescending { it.item.name } else filtered.sortedBy { it.item.name }
                 }
-                Pair(list, TagSummary(total, avg))
-            }.collectLatest { r -> _items.value = r.first; _sum.value = r.second }
+                Pair(sorted, TagSummary(total, avg))
+            }.collectLatest { r -> _filteredItems.value = r.first; _tagSummary.value = r.second }
+        }
+        // ★ 计算全部物品的资产净值
+        viewModelScope.launch {
+            allItems.collectLatest { items ->
+                _assetSummary.value = AssetSummary(
+                    totalAmount = items.sumOf { it.item.price },
+                    itemCount = items.size,
+                    totalDailyCost = items.sumOf { it.item.price / DateUtils.getDaysSince(it.item.purchaseDate) }
+                )
+            }
         }
     }
 
-    fun selectTag(id: Long) { _tagId.value = if (_tagId.value == id) null else id }
-    fun setSortOption(o: SortOption) { _sort.value = o }
-    fun deleteItem(item: ItemWithTags) { viewModelScope.launch { repo.deleteItem(item.item) } }
+    fun selectTag(tagId: Long) { _selectedTagId.value = if (_selectedTagId.value == tagId) null else tagId }
+    fun setSortOption(option: SortOption) { _sortOption.value = option }
+    fun deleteItem(itemWithTags: ItemWithTags) { viewModelScope.launch { repository.deleteItem(itemWithTags.item) } }
 }
