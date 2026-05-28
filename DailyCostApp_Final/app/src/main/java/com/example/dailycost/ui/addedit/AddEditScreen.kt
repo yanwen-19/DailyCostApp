@@ -45,7 +45,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.dailycost.data.entity.Tag
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -68,9 +67,7 @@ fun AddEditScreen(
     var newTagText by remember { mutableStateOf("") }
 
     LaunchedEffect(itemId) {
-        if (itemId != null) {
-            viewModel.loadItem(itemId)
-        }
+        if (itemId != null) viewModel.loadItem(itemId)
     }
 
     Scaffold(
@@ -116,7 +113,7 @@ fun AddEditScreen(
 
             OutlinedTextField(
                 value = price,
-                onValueChange = { newVal -> viewModel.updatePrice(newVal) },
+                onValueChange = { viewModel.updatePrice(it) },
                 label = { Text("价格（元）") },
                 placeholder = { Text("2.50") },
                 singleLine = true,
@@ -132,46 +129,27 @@ fun AddEditScreen(
                 label = { Text("购买日期") },
                 readOnly = true,
                 trailingIcon = {
-                    Icon(
-                        Icons.Default.CalendarMonth,
-                        contentDescription = "选择日期",
+                    Icon(Icons.Default.CalendarMonth, contentDescription = "选择日期",
                         modifier = Modifier.clickable {
                             val cal = Calendar.getInstance()
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, day ->
-                                    viewModel.updatePurchaseDate(
-                                        String.format("%04d-%02d-%02d", year, month + 1, day)
-                                    )
-                                },
-                                cal.get(Calendar.YEAR),
-                                cal.get(Calendar.MONTH),
-                                cal.get(Calendar.DAY_OF_MONTH)
-                            ).show()
-                        }
-                    )
+                            DatePickerDialog(context, { _, y, m, d ->
+                                viewModel.updatePurchaseDate("%04d-%02d-%02d".format(y, m + 1, d))
+                            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+                        })
                 },
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("标签", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { showNewTagDialog = true }) {
-                    Text("+ 新建标签")
-                }
+                TextButton(onClick = { showNewTagDialog = true }) { Text("+ 新建标签") }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 tags.forEach { tag ->
                     FilterChip(
                         selected = selectedTagNames.contains(tag.name),
@@ -180,22 +158,14 @@ fun AddEditScreen(
                     )
                 }
                 if (tags.isEmpty()) {
-                    Text(
-                        "暂无标签，点击上方「+ 新建标签」创建",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("暂无标签", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             if (isEditMode) {
-                OutlinedButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
+                OutlinedButton(onClick = { showDeleteDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Text("删除此物品", color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -206,20 +176,9 @@ fun AddEditScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("确认删除") },
-            text = { Text("删除后无法恢复，确定要删除吗？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(onSuccess = onNavigateBack)
-                    showDeleteDialog = false
-                }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            }
+            text = { Text("确定要删除吗？此操作不可撤销。") },
+            confirmButton = { TextButton(onClick = { viewModel.delete(onSuccess = onNavigateBack); showDeleteDialog = false }) { Text("删除", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } }
         )
     }
 
@@ -227,36 +186,9 @@ fun AddEditScreen(
         AlertDialog(
             onDismissRequest = { showNewTagDialog = false },
             title = { Text("新建标签") },
-            text = {
-                OutlinedTextField(
-                    value = newTagText,
-                    onValueChange = { newTagText = it },
-                    label = { Text("标签名称") },
-                    placeholder = { Text("例如：零食") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (newTagText.isNotBlank()) {
-                        viewModel.addNewTag(newTagText.trim())
-                        newTagText = ""
-                        showNewTagDialog = false
-                    }
-                }) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    newTagText = ""
-                    showNewTagDialog = false
-                }) {
-                    Text("取消")
-                }
-            }
+            text = { OutlinedTextField(value = newTagText, onValueChange = { newTagText = it }, label = { Text("标签名称") }, placeholder = { Text("例如：零食") }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = { TextButton(onClick = { if (newTagText.isNotBlank()) { viewModel.addNewTag(newTagText.trim()); newTagText = ""; showNewTagDialog = false } }) { Text("确定") } },
+            dismissButton = { TextButton(onClick = { newTagText = ""; showNewTagDialog = false }) { Text("取消") } }
         )
     }
 }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
