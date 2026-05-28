@@ -1,5 +1,6 @@
 package com.example.dailycost.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,9 +44,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dailycost.data.entity.ItemWithTags
 import com.example.dailycost.data.entity.Tag
@@ -59,6 +62,7 @@ fun MainScreen(onNavigateToAdd: () -> Unit, onNavigateToEdit: (Long) -> Unit, on
     val selectedTagId by viewModel.selectedTagId.collectAsState()
     val sortOption by viewModel.sortOption.collectAsState()
     val tagSummary by viewModel.tagSummary.collectAsState()
+    val assetSummary by viewModel.assetSummary.collectAsState()
     var showSortMenu by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ItemWithTags?>(null) }
 
@@ -75,6 +79,7 @@ fun MainScreen(onNavigateToAdd: () -> Unit, onNavigateToEdit: (Long) -> Unit, on
         floatingActionButton = { FloatingActionButton(onClick = onNavigateToAdd) { Icon(Icons.Default.Add, contentDescription = "添加物品") } }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            AssetSummaryCard(summary = assetSummary)
             TagFilterRow(tags = tags, selectedTagId = selectedTagId, onTagClick = { viewModel.selectTag(it) })
             if (selectedTagId != null) { TagSummaryCard(summary = tagSummary) }
             LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -86,9 +91,29 @@ fun MainScreen(onNavigateToAdd: () -> Unit, onNavigateToEdit: (Long) -> Unit, on
     }
 
     itemToDelete?.let { item ->
-        AlertDialog(onDismissRequest = { itemToDelete = null }, title = { Text("确认删除") }, text = { Text("确定要删除\u300C${item.item.name}\u300D吗？") },
+        AlertDialog(onDismissRequest = { itemToDelete = null }, title = { Text("确认删除") }, text = { Text("确定要删除「${item.item.name}」吗？") },
             confirmButton = { TextButton(onClick = { viewModel.deleteItem(item); itemToDelete = null }) { Text("删除", color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { itemToDelete = null }) { Text("取消") } })
+    }
+}
+
+@Composable
+private fun AssetSummaryCard(summary: MainViewModel.AssetSummary) {
+    Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF1976D2)).padding(horizontal = 24.dp, vertical = 14.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("资产净值", color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+                Text("¥" + "%.2f".format(summary.totalAmount), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("物品项数", color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+                Text(summary.itemCount.toString() + " 件", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("总日供", color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+                Text("¥" + "%.4f".format(summary.totalDailyCost), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
