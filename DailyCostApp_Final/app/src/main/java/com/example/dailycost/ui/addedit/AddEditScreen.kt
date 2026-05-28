@@ -49,11 +49,7 @@ import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun AddEditScreen(
-    itemId: Long?,
-    onNavigateBack: () -> Unit,
-    viewModel: AddEditViewModel = viewModel()
-) {
+fun AddEditScreen(itemId: Long?, onNavigateBack: () -> Unit, viewModel: AddEditViewModel = viewModel()) {
     val context = LocalContext.current
     val name by viewModel.name.collectAsState()
     val price by viewModel.price.collectAsState()
@@ -61,134 +57,58 @@ fun AddEditScreen(
     val selectedTagNames by viewModel.selectedTagNames.collectAsState()
     val tags by viewModel.allTags.collectAsState()
     val isEditMode by viewModel.isEditMode.collectAsState()
-
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showNewTagDialog by remember { mutableStateOf(false) }
     var newTagText by remember { mutableStateOf("") }
 
-    LaunchedEffect(itemId) {
-        if (itemId != null) viewModel.loadItem(itemId)
-    }
+    LaunchedEffect(itemId) { if (itemId != null) viewModel.loadItem(itemId) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isEditMode) "编辑物品" else "添加物品") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.save(onSuccess = onNavigateBack) }) {
-                        Icon(Icons.Default.Check, contentDescription = "保存")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
+    Scaffold(topBar = {
+        TopAppBar(title = { Text(if (isEditMode) "编辑物品" else "添加物品") },
+            navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") } },
+            actions = { IconButton(onClick = { viewModel.save(onSuccess = onNavigateBack) }) { Icon(Icons.Default.Check, contentDescription = "保存") } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.onSurface))
+    }) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = name,
-                onValueChange = { viewModel.updateName(it) },
-                label = { Text("物品名称") },
-                placeholder = { Text("例：农夫山泉 550ml") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
+            OutlinedTextField(value = name, onValueChange = { viewModel.updateName(it) }, label = { Text("物品名称") }, placeholder = { Text("例：农夫山泉 550ml") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(value = price, onValueChange = { viewModel.updatePrice(it) }, label = { Text("价格（元）") }, placeholder = { Text("2.50") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
-                value = price,
-                onValueChange = { viewModel.updatePrice(it) },
-                label = { Text("价格（元）") },
-                placeholder = { Text("2.50") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = purchaseDate,
-                onValueChange = {},
-                label = { Text("购买日期") },
-                readOnly = true,
-                trailingIcon = {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = "选择日期",
-                        modifier = Modifier.clickable {
-                            val cal = Calendar.getInstance()
-                            DatePickerDialog(context, { _, y, m, d ->
-                                viewModel.updatePurchaseDate("%04d-%02d-%02d".format(y, m + 1, d))
-                            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
-                        })
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // ★ 日期输入：可直接输入 20260102 自动转换，也可点日历图标
+            OutlinedTextField(value = purchaseDate, onValueChange = { viewModel.updatePurchaseDate(it) }, label = { Text("购买日期") }, placeholder = { Text("20260102 或 2026-01-02") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), trailingIcon = {
+                Icon(Icons.Default.CalendarMonth, contentDescription = "选择日期", modifier = Modifier.clickable {
+                    val cal = Calendar.getInstance()
+                    DatePickerDialog(context, { _, y, m, d -> viewModel.updatePurchaseDate("%04d-%02d-%02d".format(y, m + 1, d)) }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+                })
+            }, modifier = Modifier.fillMaxWidth())
 
             Spacer(modifier = Modifier.height(16.dp))
-
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("标签", style = MaterialTheme.typography.titleMedium)
                 TextButton(onClick = { showNewTagDialog = true }) { Text("+ 新建标签") }
             }
-
             Spacer(modifier = Modifier.height(4.dp))
-
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                tags.forEach { tag ->
-                    FilterChip(
-                        selected = selectedTagNames.contains(tag.name),
-                        onClick = { viewModel.toggleTag(tag.name) },
-                        label = { Text(tag.name) }
-                    )
-                }
-                if (tags.isEmpty()) {
-                    Text("暂无标签", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                tags.forEach { tag -> FilterChip(selected = selectedTagNames.contains(tag.name), onClick = { viewModel.toggleTag(tag.name) }, label = { Text(tag.name) }) }
+                if (tags.isEmpty()) Text("暂无标签", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             Spacer(modifier = Modifier.height(24.dp))
-
-            if (isEditMode) {
-                OutlinedButton(onClick = { showDeleteDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
-                    Text("删除此物品", color = MaterialTheme.colorScheme.error)
-                }
-            }
+            if (isEditMode) { OutlinedButton(onClick = { showDeleteDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text("删除此物品", color = MaterialTheme.colorScheme.error) } }
         }
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除吗？此操作不可撤销。") },
+        AlertDialog(onDismissRequest = { showDeleteDialog = false }, title = { Text("确认删除") }, text = { Text("确定要删除吗？此操作不可撤销。") },
             confirmButton = { TextButton(onClick = { viewModel.delete(onSuccess = onNavigateBack); showDeleteDialog = false }) { Text("删除", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } }
-        )
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } })
     }
 
     if (showNewTagDialog) {
-        AlertDialog(
-            onDismissRequest = { showNewTagDialog = false },
-            title = { Text("新建标签") },
-            text = { OutlinedTextField(value = newTagText, onValueChange = { newTagText = it }, label = { Text("标签名称") }, placeholder = { Text("例如：零食") }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+        AlertDialog(onDismissRequest = { showNewTagDialog = false }, title = { Text("新建标签") }, text = { OutlinedTextField(value = newTagText, onValueChange = { newTagText = it }, label = { Text("标签名称") }, placeholder = { Text("例如：零食") }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
             confirmButton = { TextButton(onClick = { if (newTagText.isNotBlank()) { viewModel.addNewTag(newTagText.trim()); newTagText = ""; showNewTagDialog = false } }) { Text("确定") } },
-            dismissButton = { TextButton(onClick = { newTagText = ""; showNewTagDialog = false }) { Text("取消") } }
-        )
+            dismissButton = { TextButton(onClick = { newTagText = ""; showNewTagDialog = false }) { Text("取消") } })
     }
 }
